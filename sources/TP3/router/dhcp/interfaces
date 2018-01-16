@@ -1,0 +1,9 @@
+#/etc/network/interfaces
+# interfaces(5) file used by ifup(8) and ifdown(8)
+auto lo
+iface lo inet loopback
+
+auto enp7s4
+iface enp7s4 inet loopback
+	address 192.168.7.1
+        netmask 255.255.255.0
