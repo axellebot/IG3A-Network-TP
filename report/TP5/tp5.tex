@@ -1,13 +1,13 @@
 \chapterimage{./Pictures/cover-table_of_contents}
 \chapter{TP5}
     \section{Exercice 3}
-        \subsection{1.}
+        \paragraph{1.}
             C'est possible avec l'option "-m limit --limit 1/h"
-        \subsection{2.}
+        \paragraph{2.}
             --match permet aussi de faire correspondre d'autre éléments, comme l'adresse IP de la source, donc oui.
-        \subsection{3.}
+        \paragraph{3.}
             --match permet de vérifier le port source aussi.
-        \subsection{4.}
+        \paragraph{4.}
             -A INPUT -p tcp -m tcp --dport 22 -j LOGDROP
             Applique la police logdrop aux paquets tcp à destination du port 22.
             -A INPUT -p tcp -m tcp --dport 3389 -j DROP
