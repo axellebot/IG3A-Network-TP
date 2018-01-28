@@ -1,6 +1,10 @@
 # TP1
 ## 1 Installation et prise en main
 Installation d'ubuntu a l'aide d'un live USB.
+### 3 - Installation des outils nécessaires
+```bash
+sudo apt install wireshark ethtool iperf openssh-server
+```
 ## 2 - Découverte de l'environnement réseau
 ### 1 - Interface réseau
 ```
@@ -19,9 +23,9 @@ lo        Link encap:Boucle locale
 
 - Changer @IP :
 `ifconfig enp7s4 198.245.10.0`
-- Changer  @MAC :
+- Changer @MAC :
 `ifconfig enp7s4 hw ether 00:11:22:33:44:55`
-- Restaurer  @MAC : Changer l'adresse MAC a sont ancien ID
+- Restaurer @MAC : Changer l'adresse MAC a sont ancien ID
 - Désactiver ou activer la carte :
 ```bash
 ifconfig  enp7s4 [down|up]
