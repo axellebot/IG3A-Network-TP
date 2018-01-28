@@ -1,2 +1,97 @@
-\chapterimage{./Pictures/cover-table_of_contents}
-\chapter{TP2}
+\chapterimage{./Pictures/cover-socket}
+\chapter{TP2: Interconnexion de réseaux}
+\textit{Le but de ce TP est de mettre en place un sous-réseau constitué de deux ordinateurs, un agissant comme un client/ordinateur de travail normal, et l'autre agissant comme un routeur, faisant l'interface avec le réseau comprenant les ordinateurs de tout les groupes.}
+
+\section{Définition du plan d'adressage}
+Afin de s'accorder sur les adresses IP à utiliser dans le réseau 192.168.255.0/24, nous avons tous mis en commun l'adresse que nous souhaitions utiliser, la nôtre étant 192.168.255.7, de ce fait, le sous-réseau que nous allons réaliser sera le 192.168.7.0/24.
+On voit clairement que son masque est 255.255.255 et que son adresse de diffusion est 192.168.7.255, ces informations peuvent se révéler utile par la suite. Nous avons choisi de simplement adresser l'ordinateur "routeur" par l'adresse 192.168.7.1 et la "machine cliente" par 192.168.7.2.\\
+Il est utile de clarifier dès maintenant la situation autour du routeur, celui-ci est connecté à deux réseaux:
+\begin{itemize}
+\item Le réseau de la salle, 192.168.255.0/24, de broadcast 192.168.255.255 où notre routeur occupe l'adresse 192.168.255.7.
+\item Le sous-réseau entre les deux ordinateurs utilisés, 192.168.7.0/24 où notre routeur occupe l'adresse 192.168.7.1.
+\end{itemize}
+
+\section{Mise en place du réseau}
+\subsection{Connexion physique}
+Il est maintenant temps de connecter physiquement les machines ensemble afin de pouvoir mettre en pratique la théorie vu précédemment.
+On commence par relier directement la machine routeur et la machine cliente, qui forme le sous-réseau 192.168.7.0. On débranche la machine cliente de sa connexion avec le réseau de l'université, afin de respecter au mieux le schéma de câblage.\\
+On branche ensuite la machine routeur au commutateur mis à disposition dans la salle afin de relier notre routeur au réseau 192.168.255.0 où sont présentes les machines des autres groupes. C'est par ce réseau que sera fait l'accès aux autres machines clientes des autres groupes.\\
+
+\subsection{Configuration logique}
+Avant de commencer à configurer les interfaces logiques de nos machines, il est recommandé de désactiver le gestionnaire de réseau, grâce à la commande:
+
+\begin{minted}{shell}
+systemctl disable NetworkManager
+\end{minted}
+
+cela empêchera les systèmes normalement automatisés de Linux d'écraser la configuration manuellement réalisée.\\
+On utilise la commande \mintinline{shell}{ifconfig} pour configurer les interfaces, et \mintinline{shell}{ethtools} pour identifier les interfaces à configurer.\\
+On commence par configurer la machine cliente, plus facile à configurer :
+
+\begin{minted}{shell}
+ifconfig enp47s0 192.168.7.2 netmask 255.255.255.0
+\end{minted}
+
+Ici, on indique à l'interface qui convient qu'elle doit prendre l'adresse IP déterminée au début, avec le masque approprié.\\
+On configure enfin les interfaces de la machine routeur:
+\begin{minted}{shell}
+ifconfig enp7s4 192.168.7.1/24
+ifconfig enp47s0 192.168.255.7/24
+\end{minted}
+On a donc indiqué les adresses IP à prendre sur les interfaces qui sont reliées respectivement au sous-réseau composé de nos deux ordinateurs et au réseau composé de toutes les machines des groupes.
+
+\section{Politique de routage}
+Le routage est assez trivial dans ce cas, pour les machines clientes. Si l'adresse est sur 192.168.X.0, alors elle est accessible, sinon elle doit passer par la passerelle 192.168.X.1. Grâce au réseau commun, il sera facile d'accéder aux autres machines clientes grâce à l'adresse de leur routeur qui sera 192.168.255.X. Afin de faire transiter les paquets par la passerelle au lieu de les jeter (puisque pas destinataire original), on utilise la commande:
+
+\begin{minted}{shell}
+echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward
+\end{minted}
+
+Ainsi, on peut établir une table de routage grâce aux informations des adresses mises en commun par tout les groupes:
+
+\begin{minted}{bash}
+route add -net 192.168.2.0 netmask 255.255.255.0 gw 192.168.255.2 enp47s0
+route add -net 192.168.3.0 netmask 255.255.255.0 gw 192.168.255.3 enp47s0
+route add -net 192.168.4.0 netmask 255.255.255.0 gw 192.168.255.4 enp47s0
+route add -net 192.168.5.0 netmask 255.255.255.0 gw 192.168.255.5 enp47s0
+route add -net 192.168.6.0 netmask 255.255.255.0 gw 192.168.255.6 enp47s0
+route add -net 192.168.10.0 netmask 255.255.255.0 gw 192.168.255.10 enp47s0
+\end{minted}
+
+Il convient une fois cela fait, de préciser à notre machine cliente que sa passerelle par défaut sera donc notre machine routeur.
+
+\begin{minted}{bash}
+route add default gw 192.168.7.1 enp47s0
+\end{minted}
+
+\section{Et la connexion internet des postes clients ?}
+Afin de pouvoir se connecter à Internet avec les machines clientes, il ne suffit pas que la passerelle par défaut soit celle du routeur.\\
+En effet, lorsqu'on veut par exemple effectuer une requête ICMP vers l'adresse 8.8.8.8, celle-ci transite à l'aller par la passerelle par défaut, en conservant l'IP d'origine (192.168.7.2), le destinataire ne sait donc pas où répondre à cette requête, l'adresse étant privée.
+
+\subsection{Activation du NAT}
+Le procédé de Network Address Translation permet à des paquets originant d'une adresse privée de transiter à travers un routeur et d'atteindre leur cible dans les deux sens. Le routeur traduit l'adresse dans le nouveau réseau afin que le message lui revienne et qu'il puisse faire le relai entre les deux sources de communication.\\
+Il convient donc de préciser à la machine routeur qu'elle doit réaliser cette opération pour tout les paquets provenant du réseau 192.168.7.0, cela se fait grâce à la commande
+
+\begin{minted}{shell}
+iptables -t nat -A POSTROUTING -s 192.168.7.0/24 -o enp63s0 -j MASQUERADE
+\end{minted}
+
+Cette interface est celle connectée à Internet par le biais de l'université. Une fois cette opération réalisée, on s'aperçoit que la connectivité Internet de la machine cliente est active.
+
+\section{Sauvegarde de la configuration}
+Bien que le travail réalisé porte enfin ses fruits, tout redémarrage d'une machine entraînera la perte des configurations réalisées. C'est pourquoi il nous faut une méthode afin de sauvegarder ces changements.
+
+\subsection{Sauvegarde du mode routeur}
+Le plus simple à faire est de sauvegarder le mode routeur de la machine routeur, il suffit de modifier le fichier \textit{/etc/sysctl.conf} en décommentant la ligne:
+
+\begin{minted}{bash}
+net.ipv4.ip_forward=1
+\end{minted}
+
+\subsection{Sauvegarde des paramètres des interfaces et politiques de routage}
+Afin de sauvegarder toutes les autres configurations, on réalise deux fichiers, client.sh et router.sh comprenant toutes les modifications réalisées au cours de ce TP. Ce dernier contient des variables destinées à changer les interfaces et adresses IP en cas de changement dans l'architecture au cours des TP, ou dans le cas où l'on doive utiliser une interface différente lors de la connexion physique. Les voicis :
+
+client.sh
+\inputminted[linenos]{bash}{../sources/TP2/client.sh}
+router.sh
+\inputminted[linenos]{bash}{../sources/TP2/router.sh}
