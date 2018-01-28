@@ -1,21 +1,95 @@
-\chapterimage{./Pictures/cover-table_of_contents}
-\chapter{TP5}
-    \section{Exercice 3}
-        \paragraph{1.}
-            C'est possible avec l'option "-m limit --limit 1/h"
-        \paragraph{2.}
-            --match permet aussi de faire correspondre d'autre éléments, comme l'adresse IP de la source, donc oui.
-        \paragraph{3.}
-            --match permet de vérifier le port source aussi.
-        \paragraph{4.}
-            -A INPUT -p tcp -m tcp --dport 22 -j LOGDROP
-            Applique la police logdrop aux paquets tcp à destination du port 22.
-            -A INPUT -p tcp -m tcp --dport 3389 -j DROP
-            Applique la police drop aux paquets tcp à destination du port 3389.
-            -A LGRDP -p tcp -m limit --limit 5/min -j LOG --log-prefix "Denied RDP : " --log-level 7
-            S'il y a plus de 5 paquets TCP, on enregistre l'essai en notant avant "Denied RDP : "
-            -A LGRDP -j drop
-            -A LOGDROP -p tcp -m tcp --dport 22 -m state --state NEW -m recent --set --name SSH --rsource
-            -A LOGDROP -p tcp -m tcp --dport 22 -m state --state NEW -m recent --update -- seconds 60 --hitcount4 --name SSH --rsource -j LOG --log-prefix "SSH SCAN blocked:" --log-level 6
+\chapterimage{./Pictures/cover-cloud}
+\chapter{TP5: Iptables}
 
-            Le port knocking consiste à envoyer des requêtes sur certains ports dans le bon ordre afin de modifier un pare-feu distant depuis l'extérieur.
+\section{Netfilter}
+La commande \mintinline{shell}{iptables -P <CHAIN> <POLICY>} nous permet de définir la politique par défaut d' une chaine iptables.
+
+On propose ci-dessous une politique par défaut pour :
+\begin{itemize}
+  \item Une machine de bureau
+  \begin{minted}{shell}
+    iptables -P FORWARD DROP
+    iptables -P INPUT ACCEPT
+    iptables -P OUTPUT ACCEPT
+  \end{minted}
+  \item Un routeur
+  \begin{minted}{shell}
+    iptables -P FORWARD ACCEPT
+    iptables -P INPUT ACCEPT
+    iptables -P OUTPUT ACCEPT
+  \end{minted}
+\end{itemize}
+
+L'options \mintinline{shell}{--match} ou \mintinline{shell}{-m} permet de faire correspondre d'autre éléments, comme l'adresse IP de la source, le port.
+
+Ci-dessous des exemple de politique dans différent contexte :
+\begin{itemize}
+  \item Pour autoriser les paquets ayant pour port sources le port 80 à entrer sur un machine nous utiliserons la commande suivante : \mintinline{shell}{iptables -A INPUT -sport 80 --j accept}
+  \item Pour autoriser les paquets ayant pour port sources le port 80 à traverser une machine nous utiliserons la commande suivante : \mintinline{shell}{iptables -A FOWARD -sport 80 --j accept}
+  \item Pour autoriser les paquets ayant pour port sources le port 53 et ayant pour adresse source \textit{193.50.50.2} à entrer sur une machine nous utiliserons la commande suivante : \mintinline{shell}{iptables -A INPUT -sport 53 -s 193.50.50.2 --j accept}
+  \item Pour autoriser les paquets ayant pour port sources le port 53 et ayant pour adresse source \textit{193.50.50.2} à entrer sur une machine nous utiliserons la commande suivante : \mintinline{shell}{iptables -A FORWARD -sport 53 -s 193.50.50.2 --j accept}
+  \item Afin d'autoriser en entré que les paquets relatifs à une connexion déjà existante nous utiliserons les commandes suivantes :
+  \begin{minted}{shell}
+    iptables -P INPUT DROP
+    iptables -A INPUT -m established -cstate related --j accept
+  \end{minted}
+  \item Afin d'autoriser en traversée que les paquets relatifs à une connexion déjà existante nous utiliserons les commandes suivantes :
+  \begin{minted}{shell}
+    iptables -P FORWARD DROP
+    iptables -A FORWARD -m established -cstate related --j accept
+  \end{minted}
+\end{itemize}
+
+Nous pouvons utilisé la commande \mintinline{shell}{netstats} pour connaitre les ports utilisés.
+
+\section{Manipulation iptables}
+Nous pouvons utiliser la commande \mintinline{shell}{iptables -P INPUT DROP} pour bloquer les communication non autorisés.
+
+Nous utiliserons les commandes ci-dessous dans différents contexte :
+\begin{itemize}
+  \item Pour visualiser les pages web des autres serveurs depuis :
+  \begin{itemize}
+    \item le serveur : \mintinline{shell}{iptables -A FORWARD -sport 80 --j accept}
+    \item le client : \mintinline{shell}{iptables -A INPUT -sport 80 -s 192.168.255.0/24 --j accept}
+  \end{itemize}
+  \item Pour visualiser la page d'acceuil de google (216.58.208.206) depuis le serveur et le client : \mintinline{shell}{iptables -A INPUT -s 216.58.208.206 --j accept}
+  \item Pour visualiser la page d'acceuil de google en utilisant son nom de domaine il faut :
+  \begin{itemize}
+    \item autoriser le serveur DNS.
+    \begin{minted}{shell}
+    iptables -A INPUT -sport 53 -s 193.50.50.2 --j accept
+    iptables -A INPUT -sport 53 -s 193.50.50.6 --j accept
+    \end{minted}
+    \item Accepter google.com : \mintinline{shell}{iptables -A INPUT -s google.com --j accept}
+    \item Sur le serveur : \mintinline{shell}{iptables -A FORWARD -sport 53 -s 193.50.50.2 --j accept}
+  \end{itemize}
+\end{itemize}
+
+On enregistre les scripts suivant pour facilité le déploiement :
+\begin{itemize}
+  \item Pour le server :
+  \inputminted{bash}{../sources/TP5/tp5-ex2-server.sh}
+  \item Pour le client :
+  \inputminted{bash}{../sources/TP5/tp5-ex2-client.sh}
+  \item Pour réinitialiser :
+  \inputminted{bash}{../sources/TP5/tp5-ex2-reset.sh}
+\end{itemize}
+
+Le fichier \textit{/etc/services} sert à faire correspondre chaque port de la machine avec le programme qui l'utilise. Par exemple le port 80 est utilisé par les serveurs HTTP et le port 22 est utilisé par le SSH.
+
+\section{Exercice 3}
+
+L'option \mintinline{shell}{-m limit --limit <PACKETS_COUNT>/<TIME>} permet de limiter le nombre de paquet. Il suffit de l'associer à \mintinline{shell}{iptables} pour quelle prenne effet.\\
+Par exemple nous pouvons limiter le nombre de paquets à 5 par heure  \mintinline{shell}{-m limit --limit 5/h}
+
+\paragraph{4.}
+
+
+\inputminted[linenos]{bash}{../sources/TP5/tp5-ex3-5.sh}
+
+\paragraph{6.}
+Le port knocking consiste à envoyer des requêtes sur certains ports dans le bon ordre afin de modifier un pare-feu distant depuis l'extérieur.
+
+\inputminted[linenos]{bash}{../sources/TP5/tp5-ex3-7.sh}
+
+\section{Translation d'adresses}
