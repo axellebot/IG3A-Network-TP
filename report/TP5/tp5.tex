@@ -55,7 +55,7 @@ Nous utiliserons les commandes ci-dessous dans différents contexte :
   \item Pour visualiser la page d'acceuil de google (216.58.208.206) depuis le serveur et le client : \mintinline{shell}{iptables -A INPUT -s 216.58.208.206 --j accept}
   \item Pour visualiser la page d'acceuil de google en utilisant son nom de domaine il faut :
   \begin{itemize}
-    \item autoriser le serveur DNS.
+    \item autoriser le serveur DNS :
     \begin{minted}{shell}
     iptables -A INPUT -sport 53 -s 193.50.50.2 --j accept
     iptables -A INPUT -sport 53 -s 193.50.50.6 --j accept
@@ -83,7 +83,6 @@ L'option \mintinline{shell}{-m limit --limit <PACKETS_COUNT>/<TIME>} permet de l
 Par exemple nous pouvons limiter le nombre de paquets à 5 par heure  \mintinline{shell}{-m limit --limit 5/h}
 
 \paragraph{4.}
-
 
 \inputminted[linenos]{bash}{../sources/TP5/tp5-ex3-5.sh}
 
